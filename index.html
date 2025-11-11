@@ -207,23 +207,23 @@ async function handleFile(event) {
 
         try {
             if (['xlsx', 'xls', 'csv'].includes(fileExtension)) {
-                // --- معالجة Excel ---
                 const workbook = XLSX.read(new Uint8Array(fileData), {type: 'array'});
                 workbook.SheetNames.forEach(sheetName => {
                     const worksheet = workbook.Sheets[sheetName];
                     const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: '' });
                     jsonData.forEach(row => { allText += row.join(' ') + '\n'; });
                 });
+                extractAndDisplayNumbers(allText);
+
             } else if (['docx'].includes(fileExtension)) {
-                // --- معالجة Word (.docx) ---
-                const arrayBuffer = fileData;
-                // نستخدم docx-preview لاستخراج النص
-                const result = await docx.read(arrayBuffer);
-                allText = result.value;
+                // الطريقة الصحيحة لاستخدام docx-preview
+                // المكتبة تحتاج إلى عنصر وهمي في الصفحة لتعمل
+                const dummyElement = document.createElement('div');
+                await docx.renderAsync(fileData, dummyElement);
+                allText = dummyElement.innerText;
+                extractAndDisplayNumbers(allText);
 
             } else if (fileExtension === 'pdf') {
-                // --- معالجة PDF ---
-                // يجب تعيين مسار worker لمكتبة pdf.js
                 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.worker.min.js`;
                 const pdf = await pdfjsLib.getDocument({data: new Uint8Array(fileData)}).promise;
                 for (let i = 1; i <= pdf.numPages; i++) {
@@ -232,16 +232,14 @@ async function handleFile(event) {
                     textContent.items.forEach(item => { allText += item.str + ' '; });
                     allText += '\n';
                 }
+                extractAndDisplayNumbers(allText);
+
             } else {
                 alert('نوع الملف غير مدعوم. يرجى رفع ملف Excel, Word, أو PDF.');
-                return;
             }
-            
-            extractAndDisplayNumbers(allText);
-
         } catch (error) {
             console.error("خطأ في قراءة الملف:", error);
-            alert("حدث خطأ أثناء محاولة قراءة الملف. قد يكون الملف تالفًا أو محميًا بكلمة مرور.");
+            alert("حدث خطأ أثناء محاولة قراءة الملف. قد يكون الملف تالفًا أو محميًا.");
         }
     };
 
