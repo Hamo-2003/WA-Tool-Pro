@@ -4,8 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>مولد روابط واتساب الإحترافي - تصميم م. محمد صبحي</title>
-<!-- إضافة مكتبة SheetJS (xlsx) لقراءة ملفات الإكسل من الإنترنت لضمان التوافق -->
+<!-- 1. مكتبة Excel -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- 2. مكتبة PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
+<!-- 3. مكتبة Word -->
+<script src="https://cdn.jsdelivr.net/npm/docx-preview@0.1.15/dist/docx-preview.min.js"></script>
+
 <style>
   body {
     font-family: 'Cairo', sans-serif;
@@ -142,8 +147,8 @@
 <div class="container">
   <h2>مولد روابط واتساب الإحترافي</h2>
 
-  <label for="file-input" class="file-upload-btn">📤 رفع ملف Excel واستخراج الأرقام</label>
-  <input type="file" id="file-input" accept=".xlsx, .xls, .csv" onchange="handleFile(event)">
+  <label for="file-input" class="file-upload-btn">📤 رفع ملف (Excel, Word, PDF)</label>
+  <input type="file" id="file-input" accept=".xlsx, .xls, .csv, .doc, .docx, .pdf" onchange="handleFile(event)">
 
   <label for="numbers">📱 أرقام الهواتف (كل رقم في سطر):</label>
   <textarea id="numbers" placeholder="سيتم وضع الأرقام المستخرجة هنا، أو يمكنك إضافتها يدويًا..."></textarea>
@@ -188,42 +193,80 @@
 </footer>
 
 <script>
-function handleFile(event) {
+// --- معالجة الملفات ---
+async function handleFile(event) {
     const file = event.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = function(e) {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, {type: 'array'});
-        
-        let allText = '';
-        workbook.SheetNames.forEach(sheetName => {
-            const worksheet = workbook.Sheets[sheetName];
-            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: '' });
-            jsonData.forEach(row => {
-                allText += row.join(' ') + '\n';
-            });
-        });
+    const fileExtension = file.name.split('.').pop().toLowerCase();
 
-        const phoneRegex = /(\+?\d{1,4}[\s-.]?)?\(?\d{2,4}\)?[\s-.]?\d{2,4}[\s-.]?\d{2,9}/g;
-        const foundNumbers = allText.match(phoneRegex) || [];
-        
-        const cleanedNumbers = foundNumbers.map(num => num.replace(/\D/g, ''));
-        const uniqueNumbers = [...new Set(cleanedNumbers)].filter(n => n.length >= 7);
-        
-        const numbersTextarea = document.getElementById('numbers');
-        const existingNumbers = new Set(numbersTextarea.value.split('\n').filter(Boolean));
-        uniqueNumbers.forEach(num => existingNumbers.add(num));
-        
-        numbersTextarea.value = Array.from(existingNumbers).join('\n');
-        
-        alert(`تم العثور على ${uniqueNumbers.length} رقم هاتف جديد. الإجمالي الآن ${existingNumbers.size} رقم.`);
+    reader.onload = async function(e) {
+        const fileData = e.target.result;
+        let allText = '';
+
+        try {
+            if (['xlsx', 'xls', 'csv'].includes(fileExtension)) {
+                // --- معالجة Excel ---
+                const workbook = XLSX.read(new Uint8Array(fileData), {type: 'array'});
+                workbook.SheetNames.forEach(sheetName => {
+                    const worksheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: '' });
+                    jsonData.forEach(row => { allText += row.join(' ') + '\n'; });
+                });
+            } else if (['docx'].includes(fileExtension)) {
+                // --- معالجة Word (.docx) ---
+                const arrayBuffer = fileData;
+                // نستخدم docx-preview لاستخراج النص
+                const result = await docx.read(arrayBuffer);
+                allText = result.value;
+
+            } else if (fileExtension === 'pdf') {
+                // --- معالجة PDF ---
+                // يجب تعيين مسار worker لمكتبة pdf.js
+                pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.worker.min.js`;
+                const pdf = await pdfjsLib.getDocument({data: new Uint8Array(fileData)}).promise;
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent();
+                    textContent.items.forEach(item => { allText += item.str + ' '; });
+                    allText += '\n';
+                }
+            } else {
+                alert('نوع الملف غير مدعوم. يرجى رفع ملف Excel, Word, أو PDF.');
+                return;
+            }
+            
+            extractAndDisplayNumbers(allText);
+
+        } catch (error) {
+            console.error("خطأ في قراءة الملف:", error);
+            alert("حدث خطأ أثناء محاولة قراءة الملف. قد يكون الملف تالفًا أو محميًا بكلمة مرور.");
+        }
     };
+
     reader.readAsArrayBuffer(file);
     event.target.value = '';
 }
 
+function extractAndDisplayNumbers(text) {
+    const phoneRegex = /(\+?\d{1,4}[\s-.]?)?\(?\d{2,4}\)?[\s-.]?\d{2,4}[\s-.]?\d{2,9}/g;
+    const foundNumbers = text.match(phoneRegex) || [];
+    
+    const cleanedNumbers = foundNumbers.map(num => num.replace(/\D/g, ''));
+    const uniqueNumbers = [...new Set(cleanedNumbers)].filter(n => n.length >= 7);
+    
+    const numbersTextarea = document.getElementById('numbers');
+    const existingNumbers = new Set(numbersTextarea.value.split('\n').filter(Boolean));
+    uniqueNumbers.forEach(num => existingNumbers.add(num));
+    
+    numbersTextarea.value = Array.from(existingNumbers).join('\n');
+    
+    alert(`تم العثور على ${uniqueNumbers.length} رقم هاتف جديد. الإجمالي الآن ${existingNumbers.size} رقم.`);
+}
+
+
+// --- باقي الدوال تبقى كما هي ---
 const SAVED_MESSAGES_KEY = 'whatsappGeneratorSavedMessages';
 
 function loadSavedMessages() {
