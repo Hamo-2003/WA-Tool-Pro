@@ -6,10 +6,12 @@
 <title>مولد روابط واتساب الإحترافي - تصميم م. محمد صبحي</title>
 <!-- 1. مكتبة Excel -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<!-- 2. مكتبة PDF -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
-<!-- 3. مكتبة Word -->
+<!-- 2. مكتبة Word -->
 <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.1.15/dist/docx-preview.min.js"></script>
+<!-- 3. مكتبة PDF (للاستخراج السريع) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
+<!-- 4. مكتبة OCR (Tesseract) للمعالجة المتقدمة للـ PDF -->
+<script src='https://cdn.jsdelivr.net/npm/tesseract.js@2/dist/tesseract.min.js'></script>
 
 <style>
   body {
@@ -34,7 +36,7 @@
     border-radius: 10px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
   }
-  h2 {
+  h2, h3 {
     color: #333;
   }
   label {
@@ -75,9 +77,26 @@
   #downloadTxtBtn { background-color: #32CD32; }
   #downloadCsvBtn { background-color: #FF8C00; }
   #saveMsgBtn { background-color: #6a5acd; }
-  .file-upload-btn { background-color: #5bc0de; }
-  #file-input { display: none; }
+  
+  .file-upload-section {
+      border: 1px solid #ddd;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+  }
+  .file-upload-btn { width: calc(100% - 10px); }
+  #upload-word-excel-btn { background-color: #5bc0de; }
+  #upload-pdf-ocr-btn { background-color: #d9534f; } /* لون مميز لزر PDF */
+  
+  #file-input-word-excel, #file-input-pdf-ocr { display: none; }
 
+  #ocr-status {
+      display: none;
+      margin-top: 15px;
+      font-weight: bold;
+      color: #d9534f;
+  }
+  
   #resultsTable {
     width: 100%;
     margin-top: 20px;
@@ -102,36 +121,6 @@
     cursor: pointer;
     text-decoration: none;
     display: inline-block;
-    transition: background-color 0.3s;
-  }
-  .whatsapp-btn:hover {
-    background-color: #128C7E;
-  }
-  .invalid-number {
-    background-color: #ffdddd;
-    color: #d8000c;
-  }
-  .invalid-number .whatsapp-btn {
-      background-color: #aaa;
-      pointer-events: none;
-      cursor: not-allowed;
-  }
-  .progress-container {
-      width: 100%;
-      background-color: #ddd;
-      border-radius: 5px;
-      margin-top: 15px;
-      display: none;
-  }
-  .progress-bar {
-      width: 0%;
-      height: 20px;
-      background-color: #4CAF50;
-      text-align: center;
-      line-height: 20px;
-      color: white;
-      border-radius: 5px;
-      transition: width 0.1s;
   }
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -147,8 +136,20 @@
 <div class="container">
   <h2>مولد روابط واتساب الإحترافي</h2>
 
-  <label for="file-input" class="file-upload-btn">📤 رفع ملف (Excel, Word, PDF)</label>
-  <input type="file" id="file-input" accept=".xlsx, .xls, .csv, .doc, .docx, .pdf" onchange="handleFile(event)">
+  <!-- قسم رفع الملفات السريعة -->
+  <div class="file-upload-section">
+      <h3>استخراج سريع</h3>
+      <label for="file-input-word-excel" id="upload-word-excel-btn" class="file-upload-btn">📤 رفع ملف Word أو Excel</label>
+      <input type="file" id="file-input-word-excel" accept=".xlsx, .xls, .csv, .docx" onchange="handleFastFiles(event)">
+  </div>
+
+  <!-- قسم رفع PDF مع OCR -->
+  <div class="file-upload-section">
+      <h3>استخراج متقدم (للصور والملفات الممسوحة ضوئيًا)</h3>
+      <label for="file-input-pdf-ocr" id="upload-pdf-ocr-btn" class="file-upload-btn">📄 رفع ملف PDF ومعالجته بـ OCR</label>
+      <input type="file" id="file-input-pdf-ocr" accept=".pdf" onchange="handlePdfOcr(event)">
+      <div id="ocr-status"></div>
+  </div>
 
   <label for="numbers">📱 أرقام الهواتف (كل رقم في سطر):</label>
   <textarea id="numbers" placeholder="سيتم وضع الأرقام المستخرجة هنا، أو يمكنك إضافتها يدويًا..."></textarea>
@@ -160,19 +161,13 @@
   <textarea id="message" placeholder="اكتب رسالتك هنا..."></textarea>
   
   <label for="savedMessages">✉️ اختر رسالة محفوظة:</label>
-  <select id="savedMessages" onchange="useSavedMessage()">
-      <option value="">-- لا يوجد رسائل محفوظة --</option>
-  </select>
+  <select id="savedMessages" onchange="useSavedMessage()"></select>
 
   <div class="main-buttons">
     <button id="generateBtn" onclick="generateLinks()">🚀 توليد الروابط</button>
     <button id="saveMsgBtn" onclick="saveMessage()">💾 حفظ الرسالة الحالية</button>
     <button id="downloadTxtBtn" onclick="downloadResults('txt')">💾 تحميل (TXT)</button>
     <button id="downloadCsvBtn" onclick="downloadResults('csv')">📊 تحميل (CSV)</button>
-  </div>
-
-  <div class="progress-container" id="progressContainer">
-      <div class="progress-bar" id="progressBar">0%</div>
   </div>
 
   <table id="resultsTable" style="display:none;">
@@ -193,18 +188,16 @@
 </footer>
 
 <script>
-// --- معالجة الملفات ---
-async function handleFile(event) {
+// --- معالجة ملفات Word و Excel ---
+async function handleFastFiles(event) {
     const file = event.target.files[0];
     if (!file) return;
-
     const reader = new FileReader();
     const fileExtension = file.name.split('.').pop().toLowerCase();
 
     reader.onload = async function(e) {
         const fileData = e.target.result;
         let allText = '';
-
         try {
             if (['xlsx', 'xls', 'csv'].includes(fileExtension)) {
                 const workbook = XLSX.read(new Uint8Array(fileData), {type: 'array'});
@@ -213,39 +206,56 @@ async function handleFile(event) {
                     const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: '' });
                     jsonData.forEach(row => { allText += row.join(' ') + '\n'; });
                 });
-                extractAndDisplayNumbers(allText);
-
             } else if (['docx'].includes(fileExtension)) {
-                // الطريقة الصحيحة لاستخدام docx-preview
-                // المكتبة تحتاج إلى عنصر وهمي في الصفحة لتعمل
                 const dummyElement = document.createElement('div');
                 await docx.renderAsync(fileData, dummyElement);
                 allText = dummyElement.innerText;
-                extractAndDisplayNumbers(allText);
-
-            } else if (fileExtension === 'pdf') {
-                pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.worker.min.js`;
-                const pdf = await pdfjsLib.getDocument({data: new Uint8Array(fileData)}).promise;
-                for (let i = 1; i <= pdf.numPages; i++) {
-                    const page = await pdf.getPage(i);
-                    const textContent = await page.getTextContent();
-                    textContent.items.forEach(item => { allText += item.str + ' '; });
-                    allText += '\n';
-                }
-                extractAndDisplayNumbers(allText);
-
-            } else {
-                alert('نوع الملف غير مدعوم. يرجى رفع ملف Excel, Word, أو PDF.');
             }
+            extractAndDisplayNumbers(allText);
         } catch (error) {
             console.error("خطأ في قراءة الملف:", error);
-            alert("حدث خطأ أثناء محاولة قراءة الملف. قد يكون الملف تالفًا أو محميًا.");
+            alert("حدث خطأ أثناء قراءة الملف.");
         }
     };
-
     reader.readAsArrayBuffer(file);
     event.target.value = '';
 }
+
+// --- معالجة ملفات PDF بـ OCR ---
+async function handlePdfOcr(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const ocrStatus = document.getElementById('ocr-status');
+    ocrStatus.style.display = 'block';
+    ocrStatus.textContent = 'جاري تهيئة محرك OCR...';
+
+    try {
+        const { data: { text } } = await Tesseract.recognize(
+            file,
+            'ara+eng', // دعم اللغتين العربية والإنجليزية
+            { 
+                logger: m => {
+                    console.log(m);
+                    if (m.status === 'recognizing text') {
+                        ocrStatus.textContent = `جاري المعالجة... (${Math.round(m.progress * 100)}%)`;
+                    } else {
+                        ocrStatus.textContent = `الحالة: ${m.status}`;
+                    }
+                }
+            }
+        );
+        ocrStatus.textContent = 'اكتملت المعالجة!';
+        extractAndDisplayNumbers(text);
+        setTimeout(() => { ocrStatus.style.display = 'none'; }, 3000);
+
+    } catch (error) {
+        console.error("خطأ في عملية OCR:", error);
+        ocrStatus.textContent = "فشلت عملية المعالجة. يرجى المحاولة مرة أخرى.";
+    }
+    event.target.value = '';
+}
+
 
 function extractAndDisplayNumbers(text) {
     const phoneRegex = /(\+?\d{1,4}[\s-.]?)?\(?\d{2,4}\)?[\s-.]?\d{2,4}[\s-.]?\d{2,9}/g;
@@ -262,7 +272,6 @@ function extractAndDisplayNumbers(text) {
     
     alert(`تم العثور على ${uniqueNumbers.length} رقم هاتف جديد. الإجمالي الآن ${existingNumbers.size} رقم.`);
 }
-
 
 // --- باقي الدوال تبقى كما هي ---
 const SAVED_MESSAGES_KEY = 'whatsappGeneratorSavedMessages';
@@ -329,12 +338,6 @@ async function generateLinks() {
   const tbody = table.querySelector('tbody');
   tbody.innerHTML = '';
   
-  const progressContainer = document.getElementById('progressContainer');
-  const progressBar = document.getElementById('progressBar');
-  progressContainer.style.display = 'block';
-  progressBar.style.width = '0%';
-  progressBar.textContent = '0%';
-
   for (let i = 0; i < numbers.length; i++) {
     const num = numbers[i];
     const cleanNum = num.replace(/\D/g, '').replace(/^0+/, '');
@@ -351,14 +354,6 @@ async function generateLinks() {
       <td>${isValid ? 'صالح' : 'غير صالح'}</td>
       <td><a href="${whatsappLink}" target="_blank" class="whatsapp-btn">${isValid ? 'أرسل' : 'معطل'}</a></td>
     `;
-
-    const percent = Math.round(((i + 1) / numbers.length) * 100);
-    progressBar.style.width = percent + '%';
-    progressBar.textContent = percent + '%';
-    
-    if ((i + 1) % 50 === 0) {
-        await new Promise(resolve => setTimeout(resolve, 0));
-    }
   }
 
   table.style.display = 'table';
