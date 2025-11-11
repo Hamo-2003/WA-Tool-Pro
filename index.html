@@ -100,9 +100,14 @@
       border-radius: 8px;
       margin-bottom: 20px;
   }
-  .file-upload-btn { width: 100%; }
+  /* هذا هو السطر الذي تم تعديله ليصغر حجم الزر */
+  .file-upload-btn { 
+    width: auto; 
+    display: table; /* يستخدم مع margin:auto للتوسيط */
+    margin-left: auto;
+    margin-right: auto;
+  }
   
-  /* تغيير اللون هنا إلى الأحمر */
   #upload-word-excel-btn { background-color: #d9534f; } 
   
   #file-input-word-excel { display: none; }
