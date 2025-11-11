@@ -104,7 +104,8 @@
       border-radius: 8px;
       margin-bottom: 20px;
   }
-  .file-upload-btn { width: calc(100% - 10px); }
+  .file-upload-btn { width: 100%; }
+  
   #upload-word-excel-btn { background-color: #5bc0de; }
   #upload-pdf-ocr-btn { background-color: #d9534f; }
   
@@ -114,6 +115,7 @@
       display: none;
       margin-top: 15px;
       font-weight: bold;
+      font-size: 18px; /* تكبير الخط ليكون أوضح */
       color: #d9534f;
   }
   
@@ -241,7 +243,7 @@ async function handleFastFiles(event) {
     event.target.value = '';
 }
 
-// --- معالجة ملفات PDF بـ OCR ---
+// --- معالجة ملفات PDF بـ OCR مع عداد التقدم ---
 async function handlePdfOcr(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -253,20 +255,24 @@ async function handlePdfOcr(event) {
     try {
         const { data: { text } } = await Tesseract.recognize(
             file,
-            'ara+eng',
+            'ara+eng', // دعم اللغتين العربية والإنجليزية
             { 
                 logger: m => {
-                    console.log(m);
+                    console.log(m); // لطباعة كل الحالات في الكونسول للمطور
                     if (m.status === 'recognizing text') {
-                        ocrStatus.textContent = `جاري المعالجة... (${Math.round(m.progress * 100)}%)`;
+                        // هذا هو الجزء الذي يعرض النسبة المئوية
+                        ocrStatus.textContent = `جاري التعرف على النص... (${Math.round(m.progress * 100)}%)`;
+                    } else if (m.status === 'loading language model') {
+                        ocrStatus.textContent = 'جاري تحميل حزمة اللغة...';
                     } else {
                         ocrStatus.textContent = `الحالة: ${m.status}`;
                     }
                 }
             }
         );
-        ocrStatus.textContent = 'اكتملت المعالجة!';
+        ocrStatus.textContent = 'اكتملت المعالجة بنجاح!';
         extractAndDisplayNumbers(text);
+        // إخفاء الرسالة بعد 3 ثوانٍ من الاكتمال
         setTimeout(() => { ocrStatus.style.display = 'none'; }, 3000);
 
     } catch (error) {
