@@ -100,10 +100,9 @@
       border-radius: 8px;
       margin-bottom: 20px;
   }
-  /* هذا هو السطر الذي تم تعديله ليصغر حجم الزر */
   .file-upload-btn { 
     width: auto; 
-    display: table; /* يستخدم مع margin:auto للتوسيط */
+    display: table;
     margin-left: auto;
     margin-right: auto;
   }
@@ -112,16 +111,25 @@
   
   #file-input-word-excel { display: none; }
   
+  /* --- هذا هو الكود الجديد لجعل الجدول متجاوبًا --- */
+  .table-container {
+    width: 100%;
+    overflow-x: auto; /* إضافة شريط تمرير أفقي عند الحاجة */
+    margin-top: 20px;
+  }
   #resultsTable {
     width: 100%;
-    margin-top: 20px;
     border-collapse: collapse;
+    min-width: 500px; /* تحديد عرض أدنى للجدول لمنعه من الانضغاط الشديد */
   }
+  /* -------------------------------------------------- */
+
   #resultsTable th, #resultsTable td {
     border: 1px solid #ddd;
     padding: 10px;
     text-align: center;
     vertical-align: middle;
+    white-space: nowrap; /* منع التفاف النص داخل الخلايا للحفاظ على التنسيق */
   }
   #resultsTable th {
     background-color: #f2f2f2;
@@ -178,17 +186,22 @@
     <button id="downloadCsvBtn" onclick="downloadResults('csv')">📊 تحميل (CSV)</button>
   </div>
 
-  <table id="resultsTable" style="display:none;">
-    <thead>
-      <tr>
-        <th>الترقيم</th>
-        <th>الرقم الكامل</th>
-        <th>الحالة</th>
-        <th>إرسال</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+  <!-- --- تم وضع الجدول داخل الحاوية الجديدة هنا --- -->
+  <div class="table-container" id="tableContainer" style="display:none;">
+    <table id="resultsTable">
+      <thead>
+        <tr>
+          <th>الترقيم</th>
+          <th>الرقم الكامل</th>
+          <th>الحالة</th>
+          <th>إرسال</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <!-- ------------------------------------------- -->
+
 </div>
 
 <footer class="signature">
@@ -306,8 +319,8 @@ async function generateLinks() {
       return;
   }
 
-  const table = document.getElementById('resultsTable');
-  const tbody = table.querySelector('tbody');
+  const tableContainer = document.getElementById('tableContainer');
+  const tbody = document.getElementById('resultsTable').querySelector('tbody');
   tbody.innerHTML = '';
   
   for (let i = 0; i < numbers.length; i++) {
@@ -328,7 +341,7 @@ async function generateLinks() {
     `;
   }
 
-  table.style.display = 'table';
+  tableContainer.style.display = 'block';
 }
 
 function downloadResults(format) {
